@@ -1,0 +1,8 @@
+confluent-kafka
+psycopg2-binary
+fastapi
+uvicorn
+strawberry-graphql[fastapi]
+locust
+pandas
+matplotlib

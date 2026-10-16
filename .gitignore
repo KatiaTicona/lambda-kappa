@@ -222,3 +222,5 @@ __marimo__/
 __pycache__/
 *.pyc
 .env
+
+benchmark/resultados/tmp_locust/

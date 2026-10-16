@@ -6,3 +6,5 @@ strawberry-graphql[fastapi]
 locust
 pandas
 matplotlib
+psutil
+numpy

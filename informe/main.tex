@@ -85,6 +85,10 @@ el recurso completo. Con Locust se simularon 10, 50 y 200 usuarios concurrentes 
 p50/p95/p99 del dashboard completo, bytes por respuesta, fallos, CPU y memoria. Se reportan media $\pm$
 desviación estándar de $n=3$.
 
+Los resultados de las APIs se verificaron de forma independiente con Apache JMeter \TODO{versión} en modo
+no-GUI, con el mismo escenario (dashboard como transacción, usuarios sin tiempo de espera, 40~s, 3 repeticiones)
+y descartando los primeros 5~s de calentamiento.
+
 \section{Resultados}
 \subsection{Ingesta: Kappa frente a Lambda}
 Con 500, 2\,000 y 5\,000 eventos/s, ambas arquitecturas procesaron todos los eventos en las nueve corridas
@@ -112,6 +116,9 @@ hubo fallos en ninguna corrida (Tabla~\ref{tab:api}). REST atendió más dashboa
 Con 200 usuarios, que no esperan entre peticiones, el servidor operó saturado y la latencia p95 fue de 8.7 s
 en REST y 12.0 s en GraphQL.
 
+JMeter confirmó \TODO{que REST atendió más dashboards por segundo con 10 y 200 usuarios (X frente a Y; Z frente
+a W) y la reducción de bytes de GraphQL}, con diferencias de \TODO{N\,\%} frente a Locust en el throughput.
+
 \begin{table*}[t]\centering\small
 \caption{API: REST vs GraphQL (dashboard = resumen + serie; Bytes = tamaño medio de la respuesta del dashboard).}
 \label{tab:api}
@@ -133,7 +140,7 @@ porciones pequeñas de datos: el resultado depende de la implementación y del t
 
 \textbf{Limitaciones.} Todo corrió en una sola computadora (generador, trabajadores, Redpanda, PostgreSQL y
 Locust compiten por recursos), por lo que los valores sirven para comparar entre configuraciones y no como
-valores absolutos; hay una partición, un trabajador por capa, y solo 3 repeticiones por configuración.
+valores absolutos; hay una partición, un trabajador por capa, y solo 3 repeticiones por configuración, ambas herramientas corrieron en la misma computadora que el servido.
 
 \section{Conclusiones}
 Se implementó una plataforma reproducible que ingesta eventos con las arquitecturas Kappa y Lambda y los

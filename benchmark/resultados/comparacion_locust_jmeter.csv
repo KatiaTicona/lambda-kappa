@@ -1,0 +1,7 @@
+usuarios,api,dashboards_s_locust,lat_p95_ms_locust,bytes_prom_locust,dashboards_s_jmeter,lat_p95_ms_jmeter,bytes_prom_jmeter,razon_rps_jmeter/locust
+10,graphql,20.2,673.33,379.0,24.63,584.23,506.0,1.22
+10,rest,29.93,523.33,667.0,31.97,530.53,917.7,1.07
+50,graphql,35.3,2433.33,379.0,59.67,1344.62,506.0,1.69
+50,rest,37.57,2433.33,667.0,88.03,1006.08,917.0,2.34
+200,graphql,27.2,11966.67,379.0,53.75,5347.1,506.0,1.98
+200,rest,44.77,8700.0,667.0,89.85,2953.3,909.15,2.01

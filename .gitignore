@@ -226,3 +226,8 @@ __pycache__/
 benchmark/resultados/tmp_locust/
 
 informe.zip
+
+jmeter.log
+benchmark/resultados/prueba*
+
+hs_err_pid*.log

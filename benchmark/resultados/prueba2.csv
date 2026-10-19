@@ -1,0 +1,5 @@
+arch,rate_objetivo,rep,total,rate_producido,completado,t_total_s,throughput_eps,lat_p50_s,lat_p95_s,lat_p99_s,lat_max_s,cpu_prom_pct,rss_max_mb,batch_ciclos,batch_dur_prom_s,batch_dur_max_s,reproceso_s,flush_s
+kappa,500,1,5000,500.1,True,10.54,474.3,0.688,1.141,1.198,1.235,1.6,36.0,,,,,1.0
+lambda,500,1,5000,500.1,True,10.47,477.7,0.668,1.124,1.21,1.25,2.9,62.1,1,0.03,0.03,,1.0
+kappa,500,1,5000,500.1,True,11.17,447.5,0.915,1.825,2.025,2.084,2.4,23.7,,,,,1.0
+lambda,500,1,5000,500.1,True,11.16,448.1,0.736,1.235,1.307,1.362,7.1,36.3,1,0.21,0.21,,1.0

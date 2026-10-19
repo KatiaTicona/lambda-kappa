@@ -224,3 +224,5 @@ __pycache__/
 .env
 
 benchmark/resultados/tmp_locust/
+
+informe.zip

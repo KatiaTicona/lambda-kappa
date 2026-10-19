@@ -1,0 +1,14 @@
+\begin{tabular}{rlrrrrrr}
+\toprule
+Usuarios & API & Dashboards/s & p50 (ms) & p95 (ms) & p99 (ms) & Bytes & Fallos \\
+\midrule
+10 & GraphQL & $20.2\pm0.9$ & $467\pm21$ & $673\pm40$ & $3067\pm153$ & $379\pm0$ & 0 \\
+ & REST & $29.9\pm2.0$ & $280\pm20$ & $523\pm42$ & $950\pm260$ & $667\pm0$ & 0 \\
+\midrule
+50 & GraphQL & $35.3\pm1.6$ & $1200\pm0$ & $2433\pm289$ & $5033\pm58$ & $379\pm0$ & 0 \\
+ & REST & $37.6\pm4.9$ & $1093\pm110$ & $2433\pm351$ & $5100\pm361$ & $667\pm0$ & 0 \\
+\midrule
+200 & GraphQL & $27.2\pm3.5$ & $6367\pm1124$ & $11967\pm1790$ & $13333\pm2082$ & $379\pm0$ & 0 \\
+ & REST & $44.8\pm1.3$ & $3667\pm58$ & $8700\pm700$ & $9400\pm557$ & $667\pm0$ & 0 \\
+\bottomrule
+\end{tabular}

@@ -1,0 +1,158 @@
+\documentclass[10pt,a4paper,twocolumn]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish,es-tabla]{babel}
+\usepackage[margin=1.6cm,columnsep=0.7cm]{geometry}
+\usepackage{graphicx,booktabs,xcolor,microtype}
+\usepackage{enumitem}
+\usepackage[font=footnotesize,skip=2pt]{caption}
+\usepackage{titlesec}
+\usepackage{float}
+\titleformat{\subsection}{\normalfont\normalsize\bfseries}{\thesubsection.}{0.5em}{}
+\titlespacing*{\subsection}{0pt}{5pt}{2pt}
+\usepackage[hidelinks]{hyperref}
+
+\titleformat{\section}{\normalfont\large\bfseries}{\thesection.}{0.5em}{}
+\titlespacing*{\section}{0pt}{8pt}{3pt}
+\setlist{nosep,leftmargin=1.2em}
+
+% Marcas rojas para completar (desaparecen al reemplazarlas)
+\newcommand{\TODO}[1]{\textcolor{red}{[#1]}}
+\newcommand{\refx}[1]{\textcolor{red}{[ref: #1]}}   % reemplazar por \cite{clave}
+
+\title{\bfseries Comparación de arquitecturas de ingesta (Lambda y Kappa)\\
+y de API (REST y GraphQL): un benchmark de rendimiento}
+\author{Katia Daishy Ticona Casa\\
+\small Maestría en Informática, Mención en Gerencia de TIC -- Universidad Nacional del Altiplano de Puno\\
+\small Curso: Business Intelligence \quad k.ticona@est.unap.edu.pe}
+\date{Octubre de 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}\small
+Se implementó una plataforma de ingesta de eventos con dos arquitecturas (Lambda y Kappa) y dos estilos de API
+(REST y GraphQL) sobre una misma base de datos, y se midió su rendimiento. Kappa tuvo menor latencia p95 que
+Lambda en todas las tasas (0.49 frente a 0.79 s con 5\,000 e/s) con throughput equivalente. GraphQL redujo 43\,\%
+los bytes por dashboard, pero REST atendió más dashboards por segundo con 10 y 200 usuarios.
+\end{abstract}
+
+\section{Introducción}
+El análisis de datos casi en tiempo real exige arquitecturas de ingesta que combinen baja latencia y exactitud.
+La arquitectura Lambda separa una capa batch, que recalcula las vistas desde un conjunto maestro inmutable,
+de una capa speed incremental \cite{demirezen2023}; la arquitectura Kappa trata todos los datos como un flujo y
+reprocesa repitiendo el registro de eventos \cite{feick2018,sanla2019}. Sobre estas vistas, las aplicaciones de inteligencia
+de negocios consumen datos mediante APIs: REST y GraphQL difieren en el número de peticiones y en la cantidad
+de datos transferidos \cite{mikula2020,elghazal2025,seabra2019}. Este trabajo implementa ambas arquitecturas de ingesta y ambos
+estilos de API en una plataforma común, y compara su rendimiento con un protocolo reproducible
+\cite{karimov2018}.
+
+\section{Plataforma y arquitecturas}
+Un generador publica eventos sintéticos en formato JSON (consulta, trámite, pago y reclamo; semilla fija) en
+un tópico de Redpanda, compatible con Kafka. Ambas arquitecturas agregan por minuto y tipo de evento, y
+escriben en PostgreSQL.
+
+\textbf{Kappa.} Un único consumidor en streaming acumula conteos y montos y los escribe con \emph{upsert} en
+una vista; el \emph{offset} se confirma solo después de escribir en la base. Reprocesar equivale a leer el
+tópico desde el inicio con un nuevo grupo de consumo.
+
+\textbf{Lambda.} La capa speed guarda cada evento crudo (deduplicado por identificador) y actualiza una vista
+incremental en la misma transacción. La capa batch, cada 15 s, recalcula la vista completa desde los datos
+crudos y descuenta de la vista speed lo ya cubierto. Una vista de servicio une ambas capas.
+
+\textbf{APIs.} REST (FastAPI) y GraphQL (Strawberry sobre FastAPI) comparten la misma capa de acceso a datos
+y el mismo \emph{pool} de conexiones. Ofrecen dos consultas: \emph{resumen} (eventos, monto y promedio por tipo)
+y \emph{serie} (eventos y monto por minuto). Ambas pueden leer de la vista Kappa o de la vista de servicio Lambda.
+
+\section{Metodología}
+\textbf{Entorno.} \TODO{CPU, núcleos, RAM, sistema operativo, versión de Docker Desktop, versión de Python y
+de FastAPI/Strawberry/Locust (usar \texttt{pip freeze})}. Redpanda v24.2.7 y PostgreSQL 16 en contenedores,
+una partición de Redpanda y un único trabajador por capa.
+
+\textbf{Ingesta.} Tasas de 500, 2\,000 y 5\,000 eventos/s durante 30 s (15\,000, 60\,000 y 150\,000 eventos),
+con 3 repeticiones independientes que alternan arquitecturas; cada corrida usa un tópico y tablas limpios.
+\emph{Latencia} es el tiempo entre la producción de un evento y su visibilidad en la vista de consulta
+(sondeo cada 100 ms sobre una muestra de unos 3\,000 eventos por corrida); \emph{throughput} es eventos
+visibles dividido por el tiempo total hasta que todos lo son; también se midió CPU y memoria (RSS) de los
+trabajadores cada 0,5 s y el tiempo de reprocesar 150\,000 eventos desde cero. Ambas arquitecturas escriben
+cada 1 s, lo que fija un piso de latencia común. \TODO{Confirmar: se verificó que ambas vistas producen
+resultados idénticos (0 diferencias en N claves).}
+
+\textbf{API.} Un \emph{dashboard} es la carga de una pantalla que requiere \emph{resumen} y \emph{serie}:
+2 peticiones HTTP en REST y 1 en GraphQL, que solicita solo los campos necesarios, mientras que REST devuelve
+el recurso completo. Con Locust se simularon 10, 50 y 200 usuarios concurrentes sin tiempo de espera durante
+40 s, 3 repeticiones, contra un servidor \texttt{uvicorn} de un proceso; se registró dashboards/s, latencia
+p50/p95/p99 del dashboard completo, bytes por respuesta, fallos, CPU y memoria. Se reportan media $\pm$
+desviación estándar de $n=3$.
+
+\section{Resultados}
+\subsection{Ingesta: Kappa frente a Lambda}
+Con 500, 2\,000 y 5\,000 eventos/s, ambas arquitecturas procesaron todos los eventos en las nueve corridas
+de cada una y sostuvieron un throughput cercano a la carga ofrecida (Tabla~\ref{tab:ingesta}). Kappa obtuvo
+menor latencia p95 que Lambda en todas las tasas: 1.10 s frente a 1.23 s con 500 e/s, 1.07 s frente a 1.30 s
+con 2\,000 e/s y 0.49 s frente a 0.79 s con 5\,000 e/s (Fig.~\ref{fig:lat}).
+
+\begin{table*}[t]\centering\small
+\caption{Ingesta: Kappa vs Lambda (media $\pm$ desviación estándar; Compl. = corridas que procesaron todos los eventos).}
+\label{tab:ingesta}
+\input{tabla_ingesta.tex}
+\end{table*}
+
+\begin{figure}[H]\centering
+\includegraphics[width=\columnwidth]{fig_ingesta_latencia.png}
+\caption{Latencia p95 de la ingesta según la tasa de eventos (media y desviación estándar, $n=3$).}
+\label{fig:lat}
+\end{figure}
+
+\subsection{API: REST frente a GraphQL}
+El dashboard transfirió 667 B en REST (2 peticiones) y 379 B en GraphQL (1 petición), un 43\,\% menos, y no
+hubo fallos en ninguna corrida (Tabla~\ref{tab:api}). REST atendió más dashboards por segundo con 10 usuarios
+(29.9 frente a 20.2) y con 200 (44.8 frente a 27.2); con 50 usuarios la diferencia fue pequeña (37.6 frente a
+35.3) y la latencia p95 coincidió (2.4 s), sin diferencia concluyente con tres repeticiones (Fig.~\ref{fig:rps}).
+Con 200 usuarios, que no esperan entre peticiones, el servidor operó saturado y la latencia p95 fue de 8.7 s
+en REST y 12.0 s en GraphQL.
+
+\begin{table*}[t]\centering\small
+\caption{API: REST vs GraphQL (dashboard = resumen + serie; Bytes = tamaño medio de la respuesta del dashboard).}
+\label{tab:api}
+\input{tabla_api.tex}
+\end{table*}
+
+\begin{figure}[H]\centering
+\includegraphics[width=\columnwidth]{fig_api_rps.png}
+\caption{Dashboards por segundo según el número de usuarios concurrentes.}
+\label{fig:rps}
+\end{figure}
+
+\section{Discusión}
+\section{Discusión}
+La menor latencia de Kappa va en la misma dirección que lo reportado al comparar ambas arquitecturas
+\cite{sanla2019}. En las APIs, la mayor tasa de REST bajo carga alta coincide con \cite{elghazal2025} y con la
+caída de GraphQL en cargas elevadas de \cite{seabra2019}, mientras que \cite{mikula2020} halló lo contrario con
+porciones pequeñas de datos: el resultado depende de la implementación y del tamaño de la respuesta.
+
+\textbf{Limitaciones.} Todo corrió en una sola computadora (generador, trabajadores, Redpanda, PostgreSQL y
+Locust compiten por recursos), por lo que los valores sirven para comparar entre configuraciones y no como
+valores absolutos; hay una partición, un trabajador por capa, y solo 3 repeticiones por configuración.
+
+\section{Conclusiones}
+Se implementó una plataforma reproducible que ingesta eventos con las arquitecturas Kappa y Lambda y los
+expone mediante APIs REST y GraphQL sobre la misma base de datos; ambas arquitecturas produjeron los mismos
+resultados agregados. En la ingesta, Kappa tuvo menor latencia p95 que Lambda en todas las tasas evaluadas
+(500 a 5\,000 eventos/s), con diferencias de 11\,\% a 38\,\%, y ambas sostuvieron la carga ofrecida sin
+diferencias relevantes de throughput. Lambda añade una capa batch que recalcula las vistas desde el conjunto
+maestro, lo que aporta capacidad de corrección a cambio de más componentes y mayor latencia. En las APIs,
+GraphQL redujo 43\,\% los bytes por dashboard (379 frente a 667 B) y las peticiones HTTP de dos a una, pero
+REST sostuvo más dashboards por segundo con 10 usuarios (cerca de 30 frente a 20) y con 200 (cerca de 45
+frente a 27), sin diferencia concluyente con 50. En consecuencia, Kappa resulta preferible cuando
+prima la baja latencia con un único \emph{pipeline}; Lambda, cuando se requiere recalcular o corregir
+histórico; GraphQL, cuando el ancho de banda es la restricción; y REST, cuando importa la tasa de atención
+bajo carga alta. Estos valores provienen de una sola computadora, un trabajador por capa y tres
+repeticiones, por lo que sirven para comparar configuraciones y no como capacidad absoluta; como trabajo
+futuro quedan varias particiones, un clúster real y motores como Flink o Spark.
+
+El código y los datos crudos están en \url{https://github.com/KatiaTicona/lambda-kappa} (etiqueta v1.0).
+\bibliographystyle{ieeetr}
+{\footnotesize\bibliography{referencias}}
+
+\end{document}

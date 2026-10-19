@@ -56,6 +56,15 @@ def lanzar(args):
 
 def detener(procesos):
     for p in procesos:
+        try:
+            hijos = psutil.Process(p.pid).children(recursive=True)
+        except psutil.Error:
+            hijos = []
+        for h in hijos:
+            try:
+                h.terminate()
+            except psutil.Error:
+                pass
         p.terminate()
     for p in procesos:
         try:
@@ -65,22 +74,47 @@ def detener(procesos):
 
 
 class Muestreador(threading.Thread):
-    """Mide CPU (% de un nucleo) y memoria (RSS) de unos procesos cada 0.5 s."""
+    """Mide CPU (% de un nucleo) y RSS sumando el proceso y todos sus hijos, cada 0.5 s."""
     def __init__(self, pids):
         super().__init__(daemon=True)
-        self.procs = [psutil.Process(x) for x in pids]
+        self.raices = [psutil.Process(x) for x in pids]
         self.fin = threading.Event()
+        self.cache = {}
         self.cpu, self.rss = [], []
 
+    def _arbol(self):
+        procs = []
+        for r in self.raices:
+            procs.append(r)
+            try:
+                procs.extend(r.children(recursive=True))
+            except (psutil.Error, OSError):
+                pass
+        return procs
+
+    def _medir(self):
+        cpu = rss = 0
+        for p in self._arbol():
+            q = self.cache.setdefault(p.pid, p)
+            try:
+                cpu += q.cpu_percent(None)
+                rss += q.memory_info().rss
+            except (psutil.Error, OSError):
+                continue
+        return cpu, rss
+
     def run(self):
-        for p in self.procs:
-            p.cpu_percent(None)
+        try:
+            self._medir()                  # primera lectura: solo prepara el contador
+        except (psutil.Error, OSError):
+            pass
         while not self.fin.wait(0.5):
             try:
-                self.cpu.append(sum(p.cpu_percent(None) for p in self.procs))
-                self.rss.append(sum(p.memory_info().rss for p in self.procs))
-            except psutil.Error:
-                break
+                c, r = self._medir()
+            except (psutil.Error, OSError):
+                continue
+            self.cpu.append(c)
+            self.rss.append(r)
 
     def parar(self):
         self.fin.set()
